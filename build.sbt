@@ -1,4 +1,4 @@
-name := "finatra-example-2"
+name := "finatra-example"
 
 version := "0.1"
 
