@@ -1,19 +1,25 @@
 package com.sgw.example
 
 import com.google.inject.Module
-import com.sgw.example.modules.WebModule
-import com.sgw.example.web.controllers.HelloWorldController
+import com.sgw.example.modules.{CustomJacksonModule, ExampleServerModule, FuturePoolModule, WebModule}
+import com.sgw.example.web.controllers.{GraphQLController, HelloWorldController}
 import com.twitter.finagle.Http
 import com.twitter.finagle.http.{Request, Response}
 import com.twitter.finatra.http.HttpServer
-import com.twitter.finatra.http.filters.{CommonFilters, LoggingMDCFilter, TraceIdMDCFilter}
+import com.twitter.finatra.http.filters.{LoggingMDCFilter, TraceIdMDCFilter}
 import com.twitter.finatra.http.routing.HttpRouter
 import com.twitter.conversions.storage._
 
 object ExampleServerMain extends ExampleServer
 
 class ExampleServer extends HttpServer {
+
+  override def jacksonModule: Module = CustomJacksonModule
+
   override val modules: Seq[Module] = Seq(
+    CustomJacksonModule,
+    ExampleServerModule,
+    FuturePoolModule,
     WebModule
   )
 
@@ -28,6 +34,7 @@ class ExampleServer extends HttpServer {
 //      .filter[MDCFilter, MDCFilterBean]
 //      .add[CorsController]
       .add(injector.instance[HelloWorldController])
+      .add(injector.instance[GraphQLController])
   }
 
   override def configureHttpServer(server: Http.Server): Http.Server = {
