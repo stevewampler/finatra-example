@@ -1,13 +1,12 @@
-package com.sgw.example.web.controllers
+package com.sgw.example.web.controllers.graphql
 
 import java.io.InputStream
 import java.nio.charset.Charset
 
-import com.sgw.example.services.PingService
-import com.sgw.example.utils.ExtendedScalaFuture._
+import com.sgw.example.services.{FooService, PingService}
 import com.twitter.finagle.http.exp.Multipart
-import com.twitter.finagle.http.{Request, Response}
 import com.twitter.finagle.http.exp.Multipart.{FileUpload, InMemoryFileUpload, OnDiskFileUpload}
+import com.twitter.finagle.http.{Request, Response}
 import com.twitter.finatra.http.Controller
 import com.twitter.finatra.json.FinatraObjectMapper
 import com.twitter.inject.Logging
@@ -17,12 +16,13 @@ import play.api.libs.json.{JsObject, JsValue}
 import sangria.ast
 import sangria.execution.Executor.ExceptionHandler
 import sangria.execution._
-import sangria.marshalling.playJson.PlayJsonInputParser
+import sangria.marshalling.ResultMarshaller
+import sangria.marshalling.playJson.{PlayJsonInputParser, _}
 import sangria.parser.QueryParser
 import sangria.schema.{Field, ObjectType, Schema, fields}
 import sangria.validation.Violation
-import sangria.marshalling.ResultMarshaller
-import sangria.marshalling.playJson.{PlayJsonResultMarshaller, _}
+import com.sgw.example.utils.ExtendedScalaFuture._
+import sangria.renderer.SchemaRenderer
 
 import scala.concurrent.ExecutionContext
 import scala.io.Source
@@ -30,25 +30,28 @@ import scala.util.{Failure, Success}
 
 case class GraphQLController(
   pingService: PingService,
+  fooService: FooService,
   objectMapper: FinatraObjectMapper
 )(
   implicit val ioExecutionContext: ExecutionContext
 ) extends Controller with Logging {
 
-  private val querySchema = ObjectType("Query",
-    fields[ExampleContext, Unit](
-      Field("Ping", PingService.Schema.pingQueries, resolve = _.ctx.pingService)
+  private val querySchema = ObjectType("Queries",
+    fields[ExampleGraphQLContext, Unit](
+      Field("Ping", PingSchema.queries, resolve = _.ctx.pingService),
+      Field("Foo", FooSchema.queries, resolve = _.ctx.fooService),
     )
   )
 
-  /*
-  val mutationSchema = ObjectType("Mutation",
-    fields[ChangemeContext, Unit](
+  private val mutationSchema = ObjectType("Mutations",
+    fields[ExampleGraphQLContext, Unit](
+      Field("Foo", FooSchema.mutations, resolve = _.ctx.fooService),
     )
   )
-  */
 
-  private val schema = Schema(querySchema, None)
+  private val schema = Schema(querySchema, Some(mutationSchema))
+
+  info(SchemaRenderer.renderSchema(schema))
 
   private val exceptionHandler: ExceptionHandler = new ExceptionHandler(
     onException = {
@@ -81,7 +84,11 @@ case class GraphQLController(
     handleQuery(
       query,
       variables,
-      ExampleContext(pingService, Map[String, Seq[FileUpload]]()),
+      ExampleGraphQLContext(
+        pingService,
+        fooService,
+        Map[String, Seq[FileUpload]]()
+      ),
       exceptionHandler
     )
   }
@@ -93,7 +100,11 @@ case class GraphQLController(
       handleQuery(
         query,
         variables,
-        ExampleContext(pingService, fileParts),
+        ExampleGraphQLContext(
+          pingService,
+          fooService,
+          fileParts
+        ),
         exceptionHandler
       )
     }
@@ -102,7 +113,7 @@ case class GraphQLController(
   private def handleQuery(
     maybeQuery: Option[String],
     maybeVariables: Option[String],
-    context: ExampleContext,
+    context: ExampleGraphQLContext,
     exHandler: ExceptionHandler
   ): Future[Response] = maybeQuery.filter { query =>
     query.trim.nonEmpty
@@ -121,19 +132,23 @@ case class GraphQLController(
   private def executeQuery(
     query: String,
     variables: Option[String],
-    context: ExampleContext,
+    context: ExampleGraphQLContext,
     exHandler: ExceptionHandler
   ): Future[Response] = Future {
     QueryParser.parse(query)
   }.flatMap {
-    case Success(queryAst) =>
+    case Success(query) =>
+      println(s"query:\n${query.renderPretty}")
+
       val vars: JsValue = variables match {
         case Some(s: String) if s.trim.nonEmpty && !s.trim.equals("undefined") => PlayJsonInputParser.parse(s).get
         case _ => JsObject(Nil)
       }
 
+      println(s"vars:\n$vars")
+
       // internally we use scala Futures
-      execute(queryAst, vars, context, exHandler).
+      execute(query, vars, context, exHandler).
         map {
           // a recover on a future triggers the success with a  response object
           case resp: Response => resp
@@ -144,7 +159,7 @@ case class GraphQLController(
         } handle {
         case e: ValidationError =>
           Try {
-            error(s"${e.getMessage}\n\nquery:\n$query\n\nvariables:\n${variables.getOrElse("")}", e)
+            error(s"${e.getMessage}\n\nquery:\n${query.renderPretty}\n\nvariables:\n$vars", e)
           }
           response.badRequest(e.resolveError)
         case e: QueryReducingError =>
@@ -192,7 +207,7 @@ case class GraphQLController(
   private def execute(
     query: ast.Document,
     variables: JsValue,
-    context: ExampleContext,
+    context: ExampleGraphQLContext,
     exHandler: ExceptionHandler
   ): Future[JsValue] = Executor.execute(
     schema,

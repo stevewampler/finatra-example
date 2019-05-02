@@ -2,7 +2,8 @@ package com.sgw.example
 
 import com.google.inject.Module
 import com.sgw.example.modules.{CustomJacksonModule, ExampleServerModule, FuturePoolModule, WebModule}
-import com.sgw.example.web.controllers.{GraphQLController, HelloWorldController}
+import com.sgw.example.web.controllers.graphql.GraphQLController
+import com.sgw.example.web.controllers.rest.HelloWorldController
 import com.twitter.finagle.Http
 import com.twitter.finagle.http.{Request, Response}
 import com.twitter.finatra.http.HttpServer
