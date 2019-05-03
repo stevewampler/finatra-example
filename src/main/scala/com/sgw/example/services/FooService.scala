@@ -1,6 +1,6 @@
 package com.sgw.example.services
 
-import com.sgw.example.web.controllers.graphql.FooSchema.CreateFooInput
+import com.sgw.example.web.controllers.graphql.CreateFooInput
 import com.twitter.util.Future
 
 object Foo {
@@ -20,7 +20,7 @@ case class FooService() {
 
   def ping(): Future[String] = Future.value("pong")
 
-  def createFoo(input: CreateFooInput): Future[Foo] = Future {
+  def create(input: CreateFooInput): Future[Foo] = Future {
     val foo = Foo(input)
 
     this.synchronized {
@@ -28,5 +28,17 @@ case class FooService() {
     }
 
     foo
+  }
+
+  def list: Future[List[Foo]] = Future {
+    this.synchronized {
+      idToFooMap.values.toList
+    }
+  }
+
+  def get(id: Long): Future[Option[Foo]] = Future {
+    synchronized {
+      idToFooMap.get(id)
+    }
   }
 }
