@@ -41,4 +41,14 @@ case class FooService() {
       idToFooMap.get(id)
     }
   }
+
+  def delete(id: Long): Future[Option[Foo]] = Future {
+    synchronized {
+      val maybeFoo = idToFooMap.get(id)
+
+      idToFooMap = idToFooMap - id
+
+      maybeFoo
+    }
+  }
 }
