@@ -22,6 +22,7 @@ import sangria.parser.QueryParser
 import sangria.schema.{Field, ObjectType, Schema, fields}
 import sangria.validation.Violation
 import com.sgw.example.utils.ExtendedScalaFuture._
+import sangria.execution.deferred.DeferredResolver
 import sangria.renderer.SchemaRenderer
 
 import scala.concurrent.ExecutionContext
@@ -214,7 +215,10 @@ case class GraphQLController(
     query,
     context,
     variables = variables,
-    exceptionHandler = exceptionHandler
+    exceptionHandler = exceptionHandler,
+    deferredResolver = DeferredResolver.fetchers(
+      GraphQLBar.gqlDeferredFetcher
+    )
   ).toTwitterFuture
 
   private def getQueryPartsFromRequest(request: Request): Try[(Option[String], Option[String], Map[String, Seq[FileUpload]])] =
