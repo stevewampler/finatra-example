@@ -5,12 +5,24 @@ import com.twitter.util.Future
 
 object Foo {
   def apply(input: CreateFooInput): Foo = Foo(
-    input.id,
-    input.name
+    id = input.id,
+    name = input.name,
+    maybeBar = Some(
+      Bar(
+        id = input.id,
+        name = input.name
+      )
+    )
   )
 }
 
 case class Foo(
+  id: Long,
+  name: String,
+  maybeBar: Option[Bar]
+)
+
+case class Bar(
   id: Long,
   name: String
 )
