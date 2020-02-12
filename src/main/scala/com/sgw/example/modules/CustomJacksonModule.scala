@@ -7,6 +7,7 @@ import com.twitter.finatra.json.modules.FinatraJacksonModule
 import com.twitter.finatra.json.utils.CamelCasePropertyNamingStrategy
 import play.libs.Json
 
+// TODO: can we avoid using Jackson?
 object CustomJacksonModule extends FinatraJacksonModule {
   override val additionalJacksonModules = Seq(DefaultScalaModule)
 

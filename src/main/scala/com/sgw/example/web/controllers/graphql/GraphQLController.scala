@@ -149,15 +149,14 @@ case class GraphQLController(
       println(s"vars:\n$vars")
 
       // internally we use scala Futures
-      execute(query, vars, context, exHandler).
-        map {
-          // a recover on a future triggers the success with a  response object
-          case resp: Response => resp
-          // success case without a recovery should always be a JsValue
-          case jsv: JsValue => response.ok(jsv.toString)
-          // default case
-          case value => response.internalServerError(s"Unexpected error occurred query:$query variables: $variables")
-        } handle {
+      execute(query, vars, context, exHandler).map {
+        // a recover on a future triggers the success with a  response object
+        case resp: Response => resp
+        // success case without a recovery should always be a JsValue
+        case jsv: JsValue => response.ok(jsv.toString)
+        // default case
+        case value => response.internalServerError(s"Unexpected error occurred query:$query variables: $variables")
+      } handle {
         case e: ValidationError =>
           Try {
             error(s"${e.getMessage}\n\nquery:\n${query.renderPretty}\n\nvariables:\n$vars", e)
@@ -190,15 +189,14 @@ case class GraphQLController(
           response.internalServerError("Unexpected error occurred.")
       }
 
-    case Failure(error) =>
-      error match {
-        case e: ValidationError => Future.value(
-          response.badRequest(
-            e.resolveError
-          )
+    case Failure(error) => error match {
+      case e: ValidationError => Future.value(
+        response.badRequest(
+          e.resolveError
         )
-        case _ => Future.value(response.badRequest(error.getMessage))
-      }
+      )
+      case _ => Future.value(response.badRequest(error.getMessage))
+    }
 
   }.map(resp => {
     resp.setContentTypeJson
