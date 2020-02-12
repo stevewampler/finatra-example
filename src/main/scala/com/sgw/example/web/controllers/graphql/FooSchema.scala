@@ -6,7 +6,7 @@ import sangria.schema._
 
 object FooSchema {
 
-  val queries = ObjectType(
+  val queries: ObjectType[ExampleGraphQLContext, FooService] = ObjectType(
     "FooQueries",
     fields[ExampleGraphQLContext, FooService](
       // http://localhost:8888/graphql?query={Foo{ping}}
@@ -43,7 +43,7 @@ object FooSchema {
     )
   )
 
-  val mutations = ObjectType(
+  val mutations: ObjectType[ExampleGraphQLContext, FooService] = ObjectType(
     "FooMutations",
     fields[ExampleGraphQLContext, FooService](
       // curl -XPOST http://localhost:8888/graphql -H 'Content-Type: application/json' -d '{ "query": "mutation ($input: CreateFooInput!) { Foo { create(input: $input) { id name } } }", "variables": "{ \"input\": { \"id\": 1, \"name\": \"foo1\" } }" }'

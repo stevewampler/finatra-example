@@ -8,11 +8,10 @@ import com.twitter.finagle.http.exp.Multipart
 import com.twitter.finagle.http.exp.Multipart.{FileUpload, InMemoryFileUpload, OnDiskFileUpload}
 import com.twitter.finagle.http.{Request, Response}
 import com.twitter.finatra.http.Controller
-import com.twitter.finatra.json.FinatraObjectMapper
 import com.twitter.inject.Logging
 import com.twitter.io.Buf
 import com.twitter.util.{Future, Return, Throw, Try}
-import play.api.libs.json.{JsObject, JsValue}
+import play.api.libs.json.{JsObject, JsValue, Json}
 import sangria.ast
 import sangria.execution.Executor.ExceptionHandler
 import sangria.execution._
@@ -31,8 +30,7 @@ import scala.util.{Failure, Success}
 
 case class GraphQLController(
   pingService: PingService,
-  fooService: FooService,
-  objectMapper: FinatraObjectMapper
+  fooService: FooService
 )(
   implicit val ioExecutionContext: ExecutionContext
 ) extends Controller with Logging {
@@ -227,14 +225,15 @@ case class GraphQLController(
       case None => Throw(new RuntimeException("No content type specified."))
     }
 
-  private def getQueryPartsFromBody(request: Request): Try[(Option[String], Option[String], Map[String, Seq[FileUpload]])] =
-    bodyGraphQLMap(request.getInputStream()).
-      map { valueMap =>
-        (valueMap.get("query"), valueMap.get("variables"), Map[String, Seq[FileUpload]]())
-      }
+  private def getQueryPartsFromBody(
+    request: Request
+  ): Try[(Option[String], Option[String], Map[String, Seq[FileUpload]])] = bodyGraphQLMap(request.getInputStream()).map { graphQLQuery =>
+    (graphQLQuery.query, graphQLQuery.variables, Map[String, Seq[FileUpload]]())
+  }
 
-  private def bodyGraphQLMap(input: InputStream): Try[Map[String, String]] =
-    Try(objectMapper.parse[Map[String, String]](input)).onFailure(ex => error(ex))
+  private def bodyGraphQLMap(is: InputStream): Try[GraphQLQuery] = Try {
+    Json.parse(is).as[GraphQLQuery]
+  }
 
   private def getQueryPartsFromMultipart(request: Request): Try[(Option[String], Option[String], Map[String, Seq[FileUpload]])] =
     request.multipart match {
