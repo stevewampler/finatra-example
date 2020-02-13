@@ -195,11 +195,10 @@ case class GraphQLController(
       )
       case _ => Future.value(response.badRequest(error.getMessage))
     }
-
-  }.map(resp => {
+  }.map { resp =>
     resp.setContentTypeJson
     resp
-  })
+  }
 
   private def execute(
     query: ast.Document,
